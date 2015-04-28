@@ -173,6 +173,9 @@ class DocumentationGenerator(object):
             r_properties = OrderedDict((k, v) for k, v in data['fields'].items()
                                        if k not in data['write_only'])
 
+            for v in r_properties.itervalues():
+                v['required'] = True
+
             models[r_name] = {
                 'id': r_name,
                 'required': [i for i in r_properties.keys()],
@@ -242,7 +245,8 @@ class DocumentationGenerator(object):
             if serializer_name is not None:
                 return serializer_name
 
-            return 'object'
+            # 'void' seems like the best we can do
+            return 'void'
 
     def _get_serializer_set(self, apis):
         """
@@ -351,11 +355,18 @@ class DocumentationGenerator(object):
 
             # Swagger type is a primitive, format is more specific
             if f['type'] == f['format']:
-                del f['format']
+                f['format'] = None
 
             # defaultValue of null is not allowed, it is specific to type
             if f['defaultValue'] is None:
                 del f['defaultValue']
+
+            # description of null is not allowed. Perhaps allow ''
+            if f['description'] is None:
+                del f['description']
+
+            if f['format'] is None:
+                del f['format']
 
             # Min/Max values
             max_value = getattr(field, 'max_value', None)
@@ -369,6 +380,9 @@ class DocumentationGenerator(object):
             # ENUM options
             if choices:
                 f['enum'] = choices
+                # Format is not allowed for enums
+                f.pop('format', None)
+                f['type'] = 'string'
 
             # Support for complex types
             if rest_framework.VERSION < '3.0.0':
@@ -384,13 +398,16 @@ class DocumentationGenerator(object):
                     if getattr(field, 'write_only', False):
                         field_serializer = "Write{}".format(field_serializer)
 
-                    f['type'] = field_serializer
+                    del f['type']
+                    f['$ref'] = field_serializer
+
                 else:
                     field_serializer = None
                     data_type = 'string'
 
                 if has_many:
                     f['type'] = 'array'
+                    del f['$ref']
                     if field_serializer:
                         f['items'] = {'$ref': field_serializer}
                     elif data_type in BaseMethodIntrospector.PRIMITIVES:

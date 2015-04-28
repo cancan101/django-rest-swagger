@@ -17,6 +17,7 @@ from django.utils.encoding import smart_text
 
 import rest_framework
 from rest_framework import viewsets
+from rest_framework.request import Request
 from rest_framework.compat import apply_markdown
 try:
     from rest_framework.fields import CurrentUserDefault
@@ -24,6 +25,7 @@ except ImportError:
     # FIXME once we drop support of DRF 2.x .
     CurrentUserDefault = None
 from rest_framework.utils import formatting
+from rest_framework.serializers import BaseSerializer
 from django.utils import six
 try:
     import django_filters
@@ -213,7 +215,7 @@ class BaseMethodIntrospector(object):
         return self.get_yaml_parser().get_extra_serializer_classes(
             self.callback)
 
-    def ask_for_serializer_class(self):
+    def ask_for_serializer_class(self, is_get_response=False):
         if hasattr(self.callback, 'get_serializer_class'):
             view = self.create_view()
             parser = self.get_yaml_parser()
@@ -222,6 +224,16 @@ class BaseMethodIntrospector(object):
             if view is not None:
                 if parser.should_omit_serializer():
                     return None
+
+                if '{' in self.path:
+                    lookup_url_kwarg = view.lookup_url_kwarg or view.lookup_field
+                    view.kwargs[lookup_url_kwarg] = ''
+                    view._docs_gen = True
+                if is_get_response and hasattr(view, 'get_serializer_class_response'):
+                    ret = view.get_serializer_class_response()
+                    if ret is not None:
+                        return ret
+
                 try:
                     serializer_class = view.get_serializer_class()
                 except AssertionError as e:
@@ -237,23 +249,24 @@ class BaseMethodIntrospector(object):
             view.kwargs = dict()
         if hasattr(self.parent.pattern, 'default_args'):
             view.kwargs.update(self.parent.pattern.default_args)
-        view.request = HttpRequest()
-        view.request.user = self.user
-        view.request.method = self.method
+        request_django = HttpRequest()
+        request_django.user = self.user
+        request_django.method = self.method
+        view.request = Request(request_django)
         return view
 
-    def get_serializer_class(self):
+    def get_serializer_class(self, is_get_response=False):
         parser = self.get_yaml_parser()
         serializer = parser.get_serializer_class(self.callback)
         if serializer is None:
-            serializer = self.ask_for_serializer_class()
+            serializer = self.ask_for_serializer_class(is_get_response=is_get_response)
         return serializer
 
     def get_response_serializer_class(self):
         parser = self.get_yaml_parser()
         serializer = parser.get_response_serializer_class(self.callback)
         if serializer is None:
-            serializer = self.get_serializer_class()
+            serializer = self.get_serializer_class(is_get_response=True)
         return serializer
 
     def get_request_serializer_class(self):
@@ -314,8 +327,9 @@ class BaseMethodIntrospector(object):
         form_params = self.build_form_parameters()
         query_params = self.build_query_parameters()
         if django_filters is not None:
-            query_params.extend(
-                self.build_query_parameters_from_django_filters())
+            if self.method == 'list':
+                query_params.extend(
+                    self.build_query_parameters_from_django_filters())
 
         if path_params:
             params += path_params
@@ -350,6 +364,10 @@ class BaseMethodIntrospector(object):
         return get_view_description(getattr(self.callback, method))
 
     def build_body_parameters(self):
+        parser = self.get_yaml_parser()
+        if parser.should_omit_serializer():
+            return
+
         serializer = self.get_request_serializer_class()
         serializer_name = IntrospectorHelper.get_serializer_name(serializer)
 
@@ -429,6 +447,10 @@ class BaseMethodIntrospector(object):
         """
         Builds form parameters from the serializer class
         """
+        parser = self.get_yaml_parser()
+        if parser.should_omit_serializer():
+            return
+
         data = []
         serializer = self.get_request_serializer_class()
 
@@ -442,7 +464,8 @@ class BaseMethodIntrospector(object):
             if getattr(field, 'read_only', False):
                 continue
 
-            data_type, data_format = get_data_type(field) or ('string', 'string')
+            data_type, data_format = get_data_type(field, is_form=True) or ('string', 'string')
+
             if data_type == 'hidden':
                 continue
 
@@ -462,6 +485,14 @@ class BaseMethodIntrospector(object):
                 # guest data type and format
                 data_type, data_format = get_primitive_type(choices[0]) or ('string', 'string')
 
+            # Support for complex types
+            if isinstance(field, BaseSerializer):
+                field_serializer = IntrospectorHelper.get_serializer_name(field)
+                field_serializer = "Write{}".format(field_serializer)
+
+                data_type = field_serializer
+                data_format = None
+
             f = {
                 'paramType': 'form',
                 'name': name,
@@ -474,6 +505,9 @@ class BaseMethodIntrospector(object):
 
             # Swagger type is a primitive, format is more specific
             if f['type'] == f['format']:
+                f['format'] = None
+
+            if f['format'] is None:
                 del f['format']
 
             # defaultValue of null is not allowed, it is specific to type
@@ -492,6 +526,9 @@ class BaseMethodIntrospector(object):
             # ENUM options
             if choices:
                 f['enum'] = choices
+                # Format is not allowed for enums
+                f.pop('format', None)
+                f['type'] = 'string'
 
             data.append(f)
 
@@ -511,7 +548,7 @@ def get_primitive_type(var):
         return 'string', 'string'  # 'default'
 
 
-def get_data_type(field):
+def get_data_type(field, is_form=False):
     # (in swagger 2.0 we might get to use the descriptive types..
     from rest_framework import fields
     if isinstance(field, fields.BooleanField):
@@ -523,7 +560,7 @@ def get_data_type(field):
     # elif isinstance(field, fields.SlugField):
         # return 'string', 'string', # 'slug'
     elif isinstance(field, fields.ChoiceField):
-        return 'choice', 'choice'
+        return 'choice', 'choice' # We deal with this invalid value elsewhere
     # elif isinstance(field, fields.EmailField):
         # return 'string', 'string' #  'email'
     # elif isinstance(field, fields.RegexField):
@@ -540,10 +577,14 @@ def get_data_type(field):
         return 'number', 'float'  # 'float'
     # elif isinstance(field, fields.DecimalField):
         # return 'string', 'string' #'decimal'
-    # elif isinstance(field, fields.ImageField):
-        # return 'string', 'string' # 'image upload'
-    # elif isinstance(field, fields.FileField):
-        # return 'string', 'string' # 'file upload'
+    elif isinstance(field, fields.ImageField):
+        if is_form:
+            return 'File', None
+        return 'string', 'string' # 'image upload'
+    elif isinstance(field, fields.FileField):
+        if is_form:
+            return 'File', None
+        return 'string', 'string' # 'file upload'
     # elif isinstance(field, fields.CharField):
         # return 'string', 'string'
     elif rest_framework.VERSION >= '3.0.0':
@@ -695,7 +736,7 @@ class ViewSetMethodIntrospector(BaseMethodIntrospector):
         view = super(ViewSetMethodIntrospector, self).create_view()
         if not hasattr(view, 'action'):
             setattr(view, 'action', self.method)
-        view.request.method = self.http_method
+        view.request._request.method = self.http_method
         return view
 
     def build_query_parameters(self):
@@ -709,14 +750,12 @@ class ViewSetMethodIntrospector(BaseMethodIntrospector):
                 parameters.append({
                     'paramType': 'query',
                     'name': page_query_param,
-                    'description': None,
                 })
                 normalize_data_format(data_type, None, parameters[-1])
             if page_size_query_param:
                 parameters.append({
                     'paramType': 'query',
                     'name': page_size_query_param,
-                    'description': None,
                 })
                 normalize_data_format(data_type, None, parameters[-1])
         return parameters
@@ -944,6 +983,7 @@ class YAMLDocstringParser(object):
         try:
             return yaml.load(yaml_string)
         except yaml.YAMLError as e:
+            raise
             self.yaml_error = e
             return None
 
@@ -1067,11 +1107,18 @@ class YAMLDocstringParser(object):
         messages = []
         response_messages = self.object.get('responseMessages', [])
         for message in response_messages:
-            messages.append({
+            entry = {
                 'code': message.get('code', None),
                 'message': message.get('message', None),
                 'responseModel': message.get('responseModel', None),
-            })
+            }
+
+            # responseModel of null is not allowed
+            if entry['responseModel'] is None:
+                del entry['responseModel']
+
+            messages.append(entry)
+
         return messages
 
     def get_view_mocker(self, callback):
@@ -1122,6 +1169,17 @@ class YAMLDocstringParser(object):
 
             if field.get('defaultValue', None) is not None:
                 f['defaultValue'] = field.get('defaultValue', None)
+
+            # Swagger type is a primitive, format is more specific
+            if 'format' in f and f['type'] == f['format']:
+                f['format'] = None
+
+            # description of null is not allowed
+            if f['description'] is None:
+                del f['description']
+
+            if 'format' in f and f['format'] is None:
+                del f['format']
 
             # Allow Multiple Values &f=1,2,3,4
             if field.get('allowMultiple'):
