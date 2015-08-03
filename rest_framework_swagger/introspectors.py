@@ -16,7 +16,7 @@ from django.contrib.admindocs.utils import trim_docstring
 from django.utils.encoding import smart_text
 
 import rest_framework
-from rest_framework import viewsets
+from rest_framework import viewsets, filters
 from rest_framework.request import Request
 from rest_framework.compat import apply_markdown
 try:
@@ -330,6 +330,8 @@ class BaseMethodIntrospector(object):
             if self.method == 'list':
                 query_params.extend(
                     self.build_query_parameters_from_django_filters())
+                query_params.extend(
+                    self.build_query_parameters_from_drf_search_filter())
 
         if path_params:
             params += path_params
@@ -441,6 +443,24 @@ class BaseMethodIntrospector(object):
                     parameter['type'] = 'enum'
                 params.append(parameter)
 
+        return params
+
+    def build_query_parameters_from_drf_search_filter(self):
+        params = []
+        filter_backends = getattr(self.callback, 'filter_backends', [])
+        search_fields = getattr(self.callback, 'search_fields', [])
+
+        for search_filter in [x for x in filter_backends if issubclass(x, filters.SearchFilter)]:
+            description = "Search the %s." % (", ".join(search_fields))
+            parameter = {
+                'paramType': 'query',
+                'name': search_filter.search_param,
+                'allowMultiple': True,
+                'description': description,
+                'type': 'string',
+                'required': False,
+            }
+            params.append(parameter)
         return params
 
     def build_form_parameters(self):
