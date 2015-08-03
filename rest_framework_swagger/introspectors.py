@@ -428,19 +428,31 @@ class BaseMethodIntrospector(object):
         filter_class = getattr(self.callback, 'filter_class', None)
         if (filter_class is not None and
                 issubclass(filter_class, django_filters.FilterSet)):
+            descriptions = getattr(filter_class.Meta, 'descriptions', {})
             for name, filter_ in filter_class.base_filters.items():
                 data_type = 'string'
                 parameter = {
                     'paramType': 'query',
                     'name': name,
-                    'description': filter_.label,
+                    'description': descriptions.get(name, filter_.label),
+                    'defaultValue': '',
+                    "required": False,
                 }
                 normalize_data_format(data_type, None, parameter)
                 multiple_choices = filter_.extra.get('choices', {})
+                if isinstance(filter_, django_filters.BooleanFilter):
+                    multiple_choices = zip(["True", "False"], ["True", "False"])
                 if multiple_choices:
                     parameter['enum'] = [choice[0] for choice
                                          in itertools.chain(multiple_choices)]
-                    parameter['type'] = 'enum'
+                    del parameter['type']
+
+                if isinstance(filter_, django_filters.MultipleChoiceFilter):
+                    parameter['allowMultiple'] = True
+
+                if parameter['description'] is None:
+                    del parameter['description']
+
                 params.append(parameter)
 
         return params
