@@ -260,6 +260,10 @@ class BaseMethodIntrospector(object):
         serializer = parser.get_serializer_class(self.callback)
         if serializer is None:
             serializer = self.ask_for_serializer_class(is_get_response=is_get_response)
+
+        if is_get_response and self.get_http_method() in ['DELETE']:
+            serializer = None
+
         return serializer
 
     def get_response_serializer_class(self):
