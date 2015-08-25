@@ -441,11 +441,11 @@ class BaseMethodIntrospector(object):
                 normalize_data_format(data_type, None, parameter)
                 multiple_choices = filter_.extra.get('choices', {})
                 if isinstance(filter_, django_filters.BooleanFilter):
+                    # should we use boolean type here instead?
                     multiple_choices = zip(["True", "False"], ["True", "False"])
                 if multiple_choices:
                     parameter['enum'] = [choice[0] for choice
                                          in itertools.chain(multiple_choices)]
-                    del parameter['type']
 
                 if isinstance(filter_, django_filters.MultipleChoiceFilter):
                     parameter['allowMultiple'] = True
