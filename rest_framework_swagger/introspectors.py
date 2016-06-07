@@ -328,7 +328,6 @@ class BaseMethodIntrospector(object):
         params = []
         path_params = self.build_path_parameters()
         body_params = self.build_body_parameters()
-        form_params = self.build_form_parameters()
         query_params = self.build_query_parameters()
         if django_filters is not None:
             if self.method == 'list':
@@ -341,9 +340,7 @@ class BaseMethodIntrospector(object):
             params += path_params
 
         if self.get_http_method() not in ["GET", "DELETE", "HEAD"]:
-            params += form_params
-
-            if not form_params and body_params is not None:
+            if body_params is not None:
                 params.append(body_params)
 
         if query_params:
@@ -381,7 +378,7 @@ class BaseMethodIntrospector(object):
             return
 
         return {
-            'name': serializer_name,
+            'name': "body",
             'type': serializer_name,
             'paramType': 'body',
         }

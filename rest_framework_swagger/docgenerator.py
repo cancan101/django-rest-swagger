@@ -266,6 +266,11 @@ class DocumentationGenerator(object):
                     if extra is not None:
                         serializers.add(extra)
 
+                request_serializer = method_introspector.get_request_serializer_class()
+                if request_serializer is not None:
+                    serializers.add(request_serializer)
+
+
         return serializers
 
     def _find_field_serializers(self, serializers, found_serializers=set()):
