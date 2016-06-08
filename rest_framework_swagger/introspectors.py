@@ -1254,8 +1254,8 @@ class YAMLDocstringParser(object):
                 f['enum'] = enum
 
             # File support
-            if f['type'] == 'file':
-                f['paramType'] = 'body'
+            if f['type'] == 'File':
+                f['paramType'] = 'form'
 
             params.append(f)
 
@@ -1290,7 +1290,6 @@ class YAMLDocstringParser(object):
             for param in parameters:
                 if param['paramType'] != 'path':
                     param['required'] = False
-
         return parameters
 
     def should_omit_parameters(self, param_type):
