@@ -465,7 +465,13 @@ class BaseMethodIntrospector(object):
         params = []
         filter_backends = getattr(self.callback, 'filter_backends', [])
 
-        for search_filter in [x for x in filter_backends if issubclass(x, filters.SearchFilter)]:
+        def issubclass_safe(klass, classinfo):
+            try:
+                return issubclass(klass, classinfo)
+            except TypeError:
+                return False
+
+        for search_filter in [x for x in filter_backends if issubclass_safe(x, filters.SearchFilter)]:
             search_filter_instance = search_filter()
             search_fields_name = getattr(search_filter_instance, 'search_fields_name', None) or 'search_fields'
             search_fields = getattr(self.callback, search_fields_name, [])
