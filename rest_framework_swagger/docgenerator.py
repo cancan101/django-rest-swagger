@@ -166,6 +166,12 @@ class DocumentationGenerator(object):
                 'properties': w_properties,
             }
 
+            models["%sWrapper" % w_name] = {
+                'id': "%sWrapper" % w_name,
+                'required': ['data'],
+                'properties': {'data': {'$ref': w_name}},
+            }
+
             # Reading
             # no write_only fields
             r_name = serializer_name
@@ -180,6 +186,12 @@ class DocumentationGenerator(object):
                 'id': r_name,
                 'required': [i for i in r_properties.keys()],
                 'properties': r_properties,
+            }
+
+            models["%sWrapper" % r_name] = {
+                'id': "%sWrapper" % r_name,
+                'required': ['data'],
+                'properties': {'data': {'$ref': r_name}},
             }
 
             # Enable original model for testing purposes
@@ -243,7 +255,7 @@ class DocumentationGenerator(object):
         else:
             serializer_name = IntrospectorHelper.get_serializer_name(serializer)
             if serializer_name is not None:
-                return serializer_name
+                return "%sWrapper" % serializer_name
 
             # 'void' seems like the best we can do
             return 'void'

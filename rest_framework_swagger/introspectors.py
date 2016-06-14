@@ -385,6 +385,8 @@ class BaseMethodIntrospector(object):
         if serializer_name is None:
             return
 
+        serializer_name = "%sWrapper" % serializer_name
+
         return {
             'name': "body",
             'type': serializer_name,
