@@ -194,6 +194,16 @@ class DocumentationGenerator(object):
                 'properties': {'data': {'$ref': r_name, 'required': True}},
             }
 
+            models["%sWrapperList" % r_name] = {
+                'id': "%sWrapperList" % r_name,
+                'required': ['data'],
+                'properties': {'data': {
+                    'type': 'array',
+                    'items': {'$ref': r_name},
+                    'required': True
+                }},
+            }
+
             # Enable original model for testing purposes
             # models[serializer_name] = {
             #     'id': serializer_name,
@@ -255,6 +265,8 @@ class DocumentationGenerator(object):
         else:
             serializer_name = IntrospectorHelper.get_serializer_name(serializer)
             if serializer_name is not None:
+                if method_inspector.is_array_response:
+                    return "%sWrapperList" % serializer_name
                 return "%sWrapper" % serializer_name
 
             # 'void' seems like the best we can do
