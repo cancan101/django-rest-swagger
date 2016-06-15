@@ -169,7 +169,7 @@ class DocumentationGenerator(object):
             models["%sWrapper" % w_name] = {
                 'id': "%sWrapper" % w_name,
                 'required': ['data'],
-                'properties': {'data': {'$ref': w_name}},
+                'properties': {'data': {'$ref': w_name, 'required': True}},
             }
 
             # Reading
@@ -191,7 +191,7 @@ class DocumentationGenerator(object):
             models["%sWrapper" % r_name] = {
                 'id': "%sWrapper" % r_name,
                 'required': ['data'],
-                'properties': {'data': {'$ref': r_name}},
+                'properties': {'data': {'$ref': r_name, 'required': True}},
             }
 
             # Enable original model for testing purposes
