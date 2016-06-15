@@ -121,11 +121,11 @@ class DocumentationGenerator(object):
 
             # Check if this method has been reported as returning an
             # array response
-            if method_introspector.is_array_response:
-                operation['items'] = {
-                    '$ref': operation['type']
-                }
-                operation['type'] = 'array'
+            # if method_introspector.is_array_response:
+            #     operation['items'] = {
+            #         '$ref': operation['type']
+            #     }
+            #     operation['type'] = 'array'
 
             operations.append(operation)
 
