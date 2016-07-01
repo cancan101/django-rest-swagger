@@ -2313,7 +2313,7 @@ class YAMLDocstringParserTests(TestCase, DocumentationGeneratorMixin):
         parser = introspector.get_yaml_parser()
         generator = self.get_documentation_generator()
         serializer = generator._get_method_serializer(introspector)
-        response_class = generator._get_method_response_type(
+        response_class, response_format = generator._get_method_response_type(
             parser, serializer, class_introspector, introspector)
 
         self.assertEqual(response_class, 'SerializedAPIPostResponse')

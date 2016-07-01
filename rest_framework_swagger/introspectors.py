@@ -1140,6 +1140,12 @@ class YAMLDocstringParser(object):
         """
         return self.object.get('type', None)
 
+    def get_response_format(self):
+        """
+        Docstring may define custom response format
+        """
+        return self.object.get('format', None)
+
     def get_consumes(self):
         """
         Retrieves media type supported as input

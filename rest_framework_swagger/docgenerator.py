@@ -87,7 +87,7 @@ class DocumentationGenerator(object):
 
             serializer = self._get_method_serializer(method_introspector)
 
-            response_type = self._get_method_response_type(
+            response_type, response_format = self._get_method_response_type(
                 doc_parser, serializer, introspector, method_introspector)
 
             operation = {
@@ -97,6 +97,9 @@ class DocumentationGenerator(object):
                 'notes': method_introspector.get_notes(),
                 'type': response_type,
             }
+
+            if response_format is not None:
+                operation['format'] = response_format
 
             if doc_parser.yaml_error is not None:
                 operation['notes'] += "<pre>YAMLError:\n {err}</pre>".format(
@@ -246,6 +249,9 @@ class DocumentationGenerator(object):
         """
         response_type = doc_parser.get_response_type()
         if response_type is not None:
+            if response_type in ['string']:
+                return response_type, doc_parser.get_response_format()
+
             # Register class in scope
             view_name = view_inspector.callback.__name__
             view_name = view_name.replace('ViewSet', '')
@@ -261,16 +267,16 @@ class DocumentationGenerator(object):
                     "properties": response_type
                 }
             })
-            return response_type_name
+            return response_type_name, None
         else:
             serializer_name = IntrospectorHelper.get_serializer_name(serializer)
             if serializer_name is not None:
                 if method_inspector.is_array_response:
-                    return "%sWrapperList" % serializer_name
-                return "%sWrapper" % serializer_name
+                    return "%sWrapperList" % serializer_name, None
+                return "%sWrapper" % serializer_name, None
 
             # 'void' seems like the best we can do
-            return 'void'
+            return 'void', None
 
     def _get_serializer_set(self, apis):
         """
