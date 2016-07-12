@@ -249,7 +249,7 @@ class DocumentationGenerator(object):
         """
         response_type = doc_parser.get_response_type()
         if response_type is not None:
-            if response_type in BaseMethodIntrospector.PRIMITIVES.keys():
+            if response_type in BaseMethodIntrospector.PRIMITIVES.keys() + ['binary']:
                 return response_type, doc_parser.get_response_format()
 
             # Register class in scope
