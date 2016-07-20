@@ -160,7 +160,12 @@ class DocumentationGenerator(object):
             # no readonly fields
             w_name = "Write{serializer}".format(serializer=serializer_name)
 
-            w_properties = OrderedDict((k, v) for k, v in data['fields'].items()
+            def fix_array(v):
+                if v.get('type') == 'array':
+                    v = dict(v, items=dict(v['items'], **{"$ref": 'Write%s' % v['items']["$ref"]}))
+                return v
+
+            w_properties = OrderedDict((k, fix_array(v)) for k, v in data['fields'].items()
                                        if k not in data['read_only'])
 
             models[w_name] = {
