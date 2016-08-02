@@ -336,6 +336,8 @@ class BaseMethodIntrospector(object):
                     self.build_query_parameters_from_django_filters())
                 query_params.extend(
                     self.build_query_parameters_from_drf_search_filter())
+                query_params.extend(
+                    self.build_query_parameters_from_drf_pagination())
 
         if path_params:
             params += path_params
@@ -493,6 +495,29 @@ class BaseMethodIntrospector(object):
                 'required': False,
             }
             params.append(parameter)
+        return params
+
+    def build_query_parameters_from_drf_pagination(self):
+        params = []
+        pagination_class = getattr(self.callback, 'pagination_class', None)
+        if pagination_class:
+            if hasattr(pagination_class, 'page_size_query_param'):
+                parameter = {
+                    'paramType': 'query',
+                    'name': pagination_class.page_size_query_param,
+                    'type': 'integer',
+                    'required': False,
+                }
+                params.append(parameter)
+            if hasattr(pagination_class, 'cursor_query_param'):
+                parameter = {
+                    'paramType': 'query',
+                    'name': pagination_class.cursor_query_param,
+                    'type': 'string',
+                    'required': False,
+                }
+                params.append(parameter)
+
         return params
 
     def build_form_parameters(self):

@@ -205,11 +205,28 @@ class DocumentationGenerator(object):
             models["%sWrapperList" % r_name] = {
                 'id': "%sWrapperList" % r_name,
                 'required': ['data'],
-                'properties': {'data': {
-                    'type': 'array',
-                    'items': {'$ref': r_name},
-                    'required': True
-                }},
+                'properties': {
+                    'data': {
+                        'type': 'array',
+                        'items': {'$ref': r_name},
+                        'required': True
+                    }
+                },
+            }
+
+            models["%sWrapperPaginated" % r_name] = {
+                'id': "%sWrapperPaginated" % r_name,
+                'required': ['data', 'links'],
+                'properties': {
+                    'data': {
+                        'type': 'array',
+                        'items': {'$ref': r_name},
+                        'required': True
+                    },
+                    'links': {
+                        '$ref': 'PaginationLink',
+                    }
+                },
             }
 
             # Enable original model for testing purposes
@@ -221,6 +238,20 @@ class DocumentationGenerator(object):
 
         models.update(self.explicit_response_types)
         models.update(self.fields_serializers)
+        models['PaginationLink'] = {
+            'id': "PaginationLink",
+            'required': ['next', 'previous'],
+            'properties': {
+                'next': {
+                    'type': 'string',
+                    'required': True
+                },
+                'previous': {
+                    'type': 'string',
+                    'required': True
+                },
+            },
+        }
         return models
 
     def _get_method_serializer(self, method_inspector):
@@ -277,6 +308,9 @@ class DocumentationGenerator(object):
             serializer_name = IntrospectorHelper.get_serializer_name(serializer)
             if serializer_name is not None:
                 if method_inspector.is_array_response:
+                    pagination_class = getattr(view_inspector.callback, 'pagination_class', None)
+                    if pagination_class is not None:
+                        return "%sWrapperPaginated" % serializer_name, None
                     return "%sWrapperList" % serializer_name, None
                 return "%sWrapper" % serializer_name, None
 
