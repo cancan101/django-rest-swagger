@@ -507,6 +507,7 @@ class BaseMethodIntrospector(object):
                     'name': pagination_class.page_size_query_param,
                     'type': 'integer',
                     'required': False,
+                    'format': 'int32',
                 }
                 params.append(parameter)
             if hasattr(pagination_class, 'cursor_query_param'):
