@@ -49,7 +49,11 @@ def get_default_value(field):
         from rest_framework.fields import empty
         if default_value == empty:
             default_value = None
-    if callable(default_value):
+
+    if hasattr(default_value, 'dummy_value'):
+        return default_value.dummy_value
+
+    elif callable(default_value):
         if CurrentUserDefault is not None and isinstance(default_value,
                                                          CurrentUserDefault):
             default_value.user = None
